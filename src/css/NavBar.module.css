@@ -1,0 +1,56 @@
+.container {
+    height: 40px;
+    width: 100%;
+    padding: 0 10px;
+    display: flex;
+    flex-direction: row;
+    background-image: linear-gradient(to top, #09203f 0%, #537895 100%);
+    border-bottom: 1px solid silver;
+}
+
+.menu,
+.add {
+    height: 40px;
+    width: 40px;
+    color: white;
+    font-size: 35px;
+    text-align: center;
+    position: relative;
+    line-height: 40px;
+    transition: all 0.1s linear;
+    transition: height 0.2s linear;
+    overflow-y: clip;
+    user-select: none;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.add {
+    font-size: 30px;
+    position: relative;
+}
+
+.pageName {
+    width: calc(100% - 80px);
+    height: 40px;
+    color: white;
+    padding: 5px 0 0 15px;
+}
+
+.menuOn {
+    width: 100px;
+    display: flex;
+    flex-direction: column;
+    background-image: linear-gradient(0.3deg, rgba(6, 17, 33, 1) 1.1%, rgba(42, 98, 226, 1) 97.3%);
+}
+
+.menuOn>div {
+    text-align: left;
+    height: 30px;
+    width: 100%;
+    padding-left: 10px;
+    font-size: 13px;
+    line-height: 28px;
+    border-bottom: 1px solid silver;
+    cursor: pointer;
+}
