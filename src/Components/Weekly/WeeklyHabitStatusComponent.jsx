@@ -1,114 +1,116 @@
-import React from 'react'
-import css from "../../css/WeeklyHabit.module.css"
-import { collection, query, where, Timestamp, onSnapshot, orderBy } from 'firebase/firestore';
-import { useState } from 'react';
-import { useEffect } from 'react';
-import { db } from '../../Tools/firebase';
-import { useDispatch } from 'react-redux';
-import { addCurrentDay, habitsAction } from '../../Redux/Reducers/HabitsReducer';
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
+import { Timestamp, addDoc, collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { db } from "../../Tools/firebase";
+import { tostify } from "../../Tools/tostify";
 
-export default function WeeklyHabitStatusComponent(props) {
-    const dispatch = useDispatch();
-
-    const [currentWeek, setCurrentWeek] = useState(null);
-    const { habit } = props;
-    const { habitName, habitDocRefPath, daysCollectionRefPath } = habit;
-
-    useEffect(() => {
-        let unsubscribe;
-        const currentDate = new Date();
-
-        const startOfWeek = new Date(currentDate);
-        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-
-        // Create Timestamps from startOfWeek and endOfWeek
-        const startTimestamp = Timestamp.fromMillis(startOfWeek.getTime());
-
-        const q = query(
-            collection(db, daysCollectionRefPath),
-            where('timeStamp', '>=', startTimestamp),
-            orderBy('timeStamp')
-        );
-
-        async function callMe() {
-            try {
-                unsubscribe = onSnapshot(q, async (daysQuerySnapshot) => {
-
-                    let setCurrentDayHelper = false;//~ if this is true means, todays doc is already created
-                    const weekData = [];
-
-                    const date = new Date();
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const today = `${year}-${month}-${day}`;//~ 2023-08-10 time formate
-
-                    if (!daysQuerySnapshot.empty) {
-                        daysQuerySnapshot.forEach(async (dayDoc) => {
-
-                            const dayReferencePath = dayDoc.ref.path; // used to uniquely identify a document
-                            const { date, status, day } = dayDoc.data();
-
-                            weekData.push({ id: dayDoc.id, date, status, day, dayReferencePath });
-
-                            if (date === today) {
-                                setCurrentDayHelper = true;
-                            }
-                        })
-                        if (setCurrentDayHelper) {
-                            await dispatch(habitsAction.updateDayData({ habitDocRefPath, weekData }));
-                            setCurrentWeekHelperFunction(weekData);
-                        } else {
-                            await dispatch(addCurrentDay(daysCollectionRefPath));
-                        }
-                    }
-                });
-            } catch (error) {
-                console.log(error)
-            }
-        }
-        callMe();
-
-        return () => {
-            if (unsubscribe)
-                unsubscribe();
-        }
-    }, [habitDocRefPath, dispatch, daysCollectionRefPath]);
-
-
-    const setCurrentWeekHelperFunction = (fetchedData) => {
-
-        const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-
-        const modifiedData = [];
-
-        for (const dayOfWeek of daysOfWeek) {
-
-            const dayData = fetchedData.find(data => data.day === dayOfWeek);
-
-            if (!dayData) {
-                modifiedData.push({ day: dayOfWeek, status: "none" });
-            } else {
-                modifiedData.push(dayData);
-            }
-        }
-        setCurrentWeek(modifiedData)
-    }
-
-    return (<>
-        <div className={css.container}>
-            <div className={css.habitDetail}>
-                <h3>{habitName}</h3>
-            </div>
-            <div className={css.weeklyDetail}>
-                {currentWeek &&
-                    currentWeek.map((current, index) =>
-                        <div key={index}
-                            style={{ backgroundColor: `${current.status === "done" ? "green" : current.status === "none" ? "grey" : "red"}` }}>
-                            {current.day}
-                        </div>)
-                }
-            </div>
-        </div>
-    </>)
+const initialState = {
+    habits: []
 }
+
+export const addHabit = createAsyncThunk("habits/addHabit", async (payload, thunkAPI) => {
+
+    const userUID = thunkAPI.getState().userReducer.userUID;
+    const habitName = payload;
+
+    const currentTimestamp = Timestamp.now();
+    const currentDate = currentTimestamp.toDate();
+
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;//~ 2023-08-10 time formate
+    const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    const dayOfWeek = daysOfWeek[currentDate.getDay()];
+
+    try {
+        // Adding a new user with a custom userUID
+        const userCollectionRef = collection(db, "users");
+        const newUserDocRef = await doc(userCollectionRef, userUID);
+
+        // Adding a new habit with habitName as the document ID
+        const habitsCollectionRef = collection(newUserDocRef, "habits");
+        const newHabitDocRef = await addDoc(habitsCollectionRef, { habitName });
+
+        // Adding days to the habit
+        const daysCollectionRef = collection(newHabitDocRef, "days");
+        await addDoc(daysCollectionRef, { timeStamp: currentTimestamp, date: today, day: dayOfWeek, status: "none" });
+
+    } catch (error) {
+        console.log(error)
+    }
+})
+
+
+
+export const addCurrentDay = createAsyncThunk("habits/addCurrentDay", async (payload, thunkAPI) => {
+
+    const currentTimestamp = Timestamp.now();
+    const currentDate = currentTimestamp.toDate();
+
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;//~ 2023-08-10 time formate
+    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayOfWeek = daysOfWeek[currentDate.getDay()];
+
+    const daysCollectionRefPath = payload;
+    await addDoc(collection(db, daysCollectionRefPath), { timeStamp: currentTimestamp, date: today, day: dayOfWeek, status: "none" });
+})
+
+
+
+export const updateHabitStatus = createAsyncThunk("habits/updateHabitStatus", async (payload, thunkAPI) => {
+
+    const { dayReferencePath, newStatus } = payload;
+    try {
+        await updateDoc(doc(db, dayReferencePath), {
+            status: newStatus
+        });
+
+    } catch (error) {
+        tostify("error", error.message)
+    }
+})
+
+export const deleteHabit = createAsyncThunk('habits/deleteHabit', async (payload, thunkApi) => {
+    try {
+        const HABITS = thunkApi.getState().habitsReducer.habits;
+        await deleteDoc(doc(db, payload));
+        if (HABITS.length === 1) {
+            thunkApi.dispatch(habitsSlice.actions.emptyHabits())
+        }
+        tostify("sucess", "successfully Deleted")
+    } catch (error) {
+        tostify("error", error.message)
+    }
+})
+
+const habitsSlice = createSlice({
+    name: "habits",
+    initialState,
+    reducers: {
+        "initialHabits": (state, action) => {
+            state.habits = action.payload;
+        },
+        "updateDayData": (state, action) => {
+            const { habitDocRefPath, daysData } = action.payload;
+            state.habits = state.habits.map(habit => {
+                if (habit.habitDocRefPath === habitDocRefPath) {
+                    return {
+                        ...habit,
+                        days: daysData
+                    };
+                }
+                return habit;
+            });
+        },
+        "emptyHabits": (state, action) => {
+            state.habits = []
+        }
+    }
+});
+
+
+export const habitsReducer = habitsSlice.reducer;
+export const habitsAction = habitsSlice.actions;
