@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit"
-import { Timestamp, addDoc, collection, doc, updateDoc } from "firebase/firestore";
+import { Timestamp, addDoc, collection, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../Tools/firebase";
 import { tostify } from "../../Tools/tostify";
 
@@ -69,11 +69,22 @@ export const updateHabitStatus = createAsyncThunk("habits/updateHabitStatus", as
         });
 
     } catch (error) {
-        tostify("error", error.massage)
+        tostify("error", error.message)
     }
 })
 
-
+export const deleteHabit = createAsyncThunk('habits/deleteHabit', async (payload, thunkApi) => {
+    try {
+        const HABITS = thunkApi.getState().habitsReducer.habits;
+        await deleteDoc(doc(db, payload));
+        if (HABITS.length === 1) {
+            thunkApi.dispatch(habitsSlice.actions.emptyHabits())
+        }
+        tostify("sucess", "successfully Deleted")
+    } catch (error) {
+        tostify("error", error.message)
+    }
+})
 
 const habitsSlice = createSlice({
     name: "habits",
@@ -93,6 +104,9 @@ const habitsSlice = createSlice({
                 }
                 return habit;
             });
+        },
+        "emptyHabits": (state, action) => {
+            state.habits = []
         }
     }
 });
