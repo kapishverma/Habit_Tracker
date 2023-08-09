@@ -31,8 +31,8 @@ export default function SignIn() {
     <div className="habitsContainer">
       <div className={css.container}>
         <form action="">
-          <input type="email" defaultValue={email} placeholder="Email" />
-          <input type="password" defaultValue={password} placeholder="Password" />
+         <input onChange={(e) => setEmail(e.target.value)} type="email" defaultValue={email} placeholder="Email" />
+          <input onChange={(e) => setPassword(e.target.value)} type="password" defaultValue={password} placeholder="Password" />
           <button onClick={(e) => handleSingIn(e)}>Sign In</button>
           <div onClick={() => handleSignUp()} className={css.switch}>don't have account? SignUp here</div>
         </form>
