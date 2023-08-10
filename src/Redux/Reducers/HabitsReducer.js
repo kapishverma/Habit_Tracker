@@ -64,10 +64,14 @@ export const updateHabitStatus = createAsyncThunk("habits/updateHabitStatus", as
 
     const { dayReferencePath, newStatus } = payload;
     try {
-        await updateDoc(doc(db, dayReferencePath), {
-            status: newStatus
-        });
-
+        if (dayReferencePath) {
+            await updateDoc(doc(db, dayReferencePath), {
+                status: newStatus
+            });
+        } else {//I need to create a new document because the status for that date has not been created yet
+            const { date, day, daysCollectionRefPath, timeStamp } = payload;
+            await addDoc(collection(db, daysCollectionRefPath), { timeStamp, date, day, status: newStatus });
+        }
     } catch (error) {
         tostify("error", error.message)
     }
