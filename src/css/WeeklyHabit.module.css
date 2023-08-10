@@ -81,4 +81,11 @@
     text-align: center;
     font-size: 12px;
     user-select: none;
+    cursor: pointer;
+    transition: all 0.1s linear;
+}
+
+.weeklyDetail>div:hover {
+    font-size: 14px;
+    width: calc((100%/7) + 4px);
 }
