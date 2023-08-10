@@ -289,21 +289,24 @@ the useEffect hook to fetch data from a Firestore collection for a specific week
 * The **setCurrentWeekHelperFunction** is called to further process the data.
 
 ```js
- useEffect(() => {
+  useEffect(() => {
         let unsubscribe;
         const currentDate = new Date();
 
+        // Set the current date to the beginning of Sunday
         const startOfWeek = new Date(currentDate);
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        startOfWeek.setHours(0, 0, 0, 0); // Set time to 12:00 AM
 
-        // Create Timestamps from startOfWeek and endOfWeek
-        const startTimestamp = Timestamp.fromMillis(startOfWeek.getTime());
+        // Create Timestamp from startOfWeek
+        const startTimestamp = Timestamp.fromDate(startOfWeek);
 
         const q = query(
             collection(db, daysCollectionRefPath),
             where('timeStamp', '>=', startTimestamp),
             orderBy('timeStamp')
         );
+
 
         async function callMe() {
             try {
@@ -337,6 +340,9 @@ the useEffect hook to fetch data from a Firestore collection for a specific week
                             await dispatch(addCurrentDay(daysCollectionRefPath));
                         }
                     }
+                    // else {
+                    //     return;
+                    // }
                 });
             } catch (error) {
                 console.log(error)
@@ -361,29 +367,46 @@ the useEffect hook to fetch data from a Firestore collection for a specific week
 * The resulting modifiedData array ensures that there's data for each day of the week.
 
 ```js
-    const setCurrentWeekHelperFunction = (fetchedData) => {
-
+ const setCurrentWeekHelperFunction = (fetchedData) => {
         const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-
         const modifiedData = [];
 
-        for (const dayOfWeek of daysOfWeek) {
+        let date = new Date();
+        date.setDate(date.getDate() - date.getDay()); // Move to the beginning of the week
 
+        for (const dayOfWeek of daysOfWeek) {
             const dayData = fetchedData.find(data => data.day === dayOfWeek);
 
             if (!dayData) {
-                modifiedData.push({ day: dayOfWeek, status: "none" });
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day}`; // e.g., "2023-08-10" format
+
+                // Convert JavaScript date to Firebase Timestamp
+                const firebaseTimestamp = Timestamp.fromDate(date);
+
+                modifiedData.push({
+                    date: formattedDate,
+                    day: dayOfWeek,
+                    status: "none",
+                    daysCollectionRefPath,
+                    timeStamp: firebaseTimestamp
+                });
+
             } else {
                 modifiedData.push(dayData);
             }
+            // Move to the next day
+            date.setDate(date.getDate() + 1);
         }
-        setCurrentWeek(modifiedData)
+        setCurrentWeek(modifiedData);
     }
 ```
 
 ---
 ># Edit Habit Status
-dispatch from Daily View
+* **dispatch from Daily View**
 ```js
     const handleHabitStatus = async () => {
         const newStatus = (currentDay.status === "done" ? "not_done" : currentDay.status === "not_done" ? "none" : "done");
@@ -391,18 +414,44 @@ dispatch from Daily View
         await dispatch(updateHabitStatus({ dayReferencePath: currentDay.dayReferencePath, newStatus }));
     }
 ```
-simple function , using dayReferencePath just it has to update status for current day,
+* **dispatch from Weekly View**
+```js
+    const handleStatusUpdate = async (dayData) => {
+        const daysOfWeek = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+        let date = new Date();
+
+        if (date.getDay() < daysOfWeek.indexOf(dayData.day)) {
+            tostify("error", "Oops, hold your horses! Future updates pending")
+            return;
+        }
+
+        const newStatus = (dayData.status === "done" ? "not_done" : dayData.status === "not_done" ? "none" : "done");
+        await dispatch(updateHabitStatus({ ...dayData, newStatus }));
+    }
+
+
+    const handleDelete = async () => {
+        await dispatch(deleteHabit(habitDocRefPath));
+    }
+ ```
+
+simple function , using dayReferencePath just it has to update status for current day, else ,if that date has not been created yet, then create a new document 
+
 ```js
 export const updateHabitStatus = createAsyncThunk("habits/updateHabitStatus", async (payload, thunkAPI) => {
 
     const { dayReferencePath, newStatus } = payload;
     try {
-        await updateDoc(doc(db, dayReferencePath), {
-            status: newStatus
-        });
-
+        if (dayReferencePath) {
+            await updateDoc(doc(db, dayReferencePath), {
+                status: newStatus
+            });
+        } else {//I need to create a new document because the status for that date has not been created yet
+            const { date, day, daysCollectionRefPath, timeStamp } = payload;
+            await addDoc(collection(db, daysCollectionRefPath), { timeStamp, date, day, status: newStatus });
+        }
     } catch (error) {
-        tostify("error", error.massage)
+        tostify("error", error.message)
     }
 })
 ```
