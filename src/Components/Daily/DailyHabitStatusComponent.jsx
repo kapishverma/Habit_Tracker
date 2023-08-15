@@ -32,8 +32,6 @@ export default function DailyHabitStatusComponent(props) {
                 unsubscribe = onSnapshot(q, async (daysQuerySnapshot) => {
 
                     const daysData = [];
-                    let setCurrentDayHelper = false;//~ if this is true means, todays doc is already created
-
                     if (!daysQuerySnapshot.empty) {
                         daysQuerySnapshot.forEach(async (dayDoc) => {
 
@@ -42,17 +40,11 @@ export default function DailyHabitStatusComponent(props) {
                             //~serializable, meaning they can be easily converted to a plain JavaScript object.convert the Timestamp object to a serializable
                             //~format before storing it in the Redux state. but i remove that
                             daysData.push({ id: dayDoc.id, date, status, dayReferencePath });
-                            if (date === today) {
-                                setCurrentDayHelper = true;
-                                await setCurrentDay({ id: dayDoc.id, ...dayDoc.data(), dayReferencePath });
-                            }
+                            await setCurrentDay({ id: dayDoc.id, ...dayDoc.data(), dayReferencePath });
                         })
-                        if (setCurrentDayHelper) {
-                            await dispatch(habitsAction.updateDayData({ habitDocRefPath, daysData }));
-                        } else {
-                            console.log("updated")
-                            await dispatch(addCurrentDay(daysCollectionRefPath));
-                        }
+                    } else {//first day of week,thats whay if condintion daysQuerySnapshot is empty,so add today data
+                        console.log("updated")
+                        await dispatch(addCurrentDay(daysCollectionRefPath));
                     }
                 });
             } catch (error) {
@@ -66,7 +58,6 @@ export default function DailyHabitStatusComponent(props) {
                 unsubscribe();
         }
     }, [habitDocRefPath]);
-
 
 
 
