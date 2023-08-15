@@ -66,10 +66,9 @@ export default function WeeklyHabitStatusComponent(props) {
                         } else {
                             await dispatch(addCurrentDay(daysCollectionRefPath));
                         }
+                    }else{//first day of week,thats whay if condintion daysQuerySnapshot is empty,so add today data
+                        await dispatch(addCurrentDay(daysCollectionRefPath));
                     }
-                    // else {
-                    //     return;
-                    // }
                 });
             } catch (error) {
                 console.log(error)
